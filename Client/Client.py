@@ -6,7 +6,7 @@ import GUII
 HEADER_LENGTH = 10
 
 HOST = "localhost"  # Server's IP
-DEVICE_HOST = "192.168.0.103"  # "192.168.2.15"
+DEVICE_HOST = "10.0.130.146"  # "192.168.2.15"
 PORT = 13000
 
 
@@ -20,6 +20,10 @@ class Client:
         self.target = None
         self.listen_flag = True
 
+        hostname = socket.gethostname()
+        IPAddr = socket.gethostbyname(hostname)
+        self.ip = IPAddr
+
     def Connect(self):
         # This method will connect client socket to server socket
 
@@ -32,6 +36,7 @@ class Client:
 
         return True
 
+    # socket for listening all peer
     def Listen(self):
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_socket.bind(("", 0))
@@ -44,11 +49,15 @@ class Client:
         self.Send_message('setPort')
         host = self.ip
         port = self.listen_socket.getsockname()[1]
+        print(host, port)
 
         self.Send_message(host)
+        # can not use send_message because port is int so can not encode
+        # self.Send_message(port)
         port = f"{port:<{HEADER_LENGTH}}".encode('utf-8')
         self.socket.send(port)
 
+    # get address of username from server
     def requestPort(self, username):
         self.Send_message('requestPort')
         self.Send_message(username)
@@ -61,8 +70,8 @@ class Client:
         else:
             return None
 
+    # This method is used to receive message from server
     def Receive_message(self):
-        # This method is used to receive message from server
 
         message_header = self.socket.recv(HEADER_LENGTH)
 
@@ -76,16 +85,64 @@ class Client:
         # Return an object of message header and message data
         return {'header': message_header, 'data': self.socket.recv(message_length).decode('utf-8')}
 
+    # This method is used to send message to server
+    # Arg: message: a string object
     def Send_message(self, message):
-        # This method is used to send message to server
-        # Arg: message: a string object
 
         message = message.encode('utf-8')
         message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
         self.socket.send(message_header + message)
 
+    ###################
+    def close(self):
+        self.Send_message('done')
+        self.socket.close()
+        for username in self.buff_dict:
+            self.buff_dict[username].assign('done', '')
+
+        host = self.ip
+        self.listen_flag = False
+        if self.listen_socket is not None:
+            port = self.listen_socket.getsockname()[1]
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((host, port))
+            s.close()
+
+    def close_response(self):
+        self.socket.close()
+
+    def listen_run(self):
+        self.listen_socket.listen()
+        while self.listen_flag:
+            print('accept1')
+            conn, addr = self.listen_socket.accept()
+            if self.listen_flag:
+                buff = Buffer.Buffer(self.lock)
+                message_list = GUII.Message_list(self.chatui.Message_box_frame)
+                service = Service_client.Service_client(
+                    conn, buff, message_list, self.username, ip=self.ip)
+                self.buff_dict[service.peer] = service.buffer
+                if service.peer in self.message_list_dict:
+                    service.message_list = self.message_list_dict[service.peer]
+                else:
+                    self.message_list_dict[service.peer] = service.message_list
+                self.chatui.update()
+                service.start()
+
+        print('closed')
+
+    def run(self):
+        self.loginui = GUII.LoginWindow(self, ('Helvetica', 13))
+        self.loginui.run()
+
+        self.chatui = GUII.ChatWindow(self, ('Helvetica', 13))
+        self.chatui.run()
+
+    # def configIP(self, ip):
+    #     self.ip = ip
+
+    ######## Service is called by GUII #########
     def Register(self, username, password):
-        # Register services
 
         self.Send_message("Register")
         self.Send_message(username)
@@ -99,7 +156,6 @@ class Client:
             return False
 
     def Login(self, username, password):
-        # Login
 
         self.Send_message("Login")
         self.Send_message(username)
@@ -174,43 +230,6 @@ class Client:
     def shutdown(self):
         self.Send_message("shutdown")
 
-    def close(self):
-        self.Send_message('done')
-        self.socket.close()
-        for username in self.buff_dict:
-            self.buff_dict[username].assign('done', '')
-
-        host = self.ip
-        self.listen_flag = False
-        if self.listen_socket is not None:
-            port = self.listen_socket.getsockname()[1]
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect((host, port))
-            s.close()
-
-    def close_response(self):
-        self.socket.close()
-
-    def listen_run(self):
-        self.listen_socket.listen()
-        while self.listen_flag:
-            print('accept1')
-            conn, addr = self.listen_socket.accept()
-            if self.listen_flag:
-                buff = Buffer.Buffer(self.lock)
-                message_list = GUII.Message_list(self.chatui.Message_box_frame)
-                service = Service_client.Service_client(
-                    conn, buff, message_list, self.username, ip=self.ip)
-                self.buff_dict[service.peer] = service.buffer
-                if service.peer in self.message_list_dict:
-                    service.message_list = self.message_list_dict[service.peer]
-                else:
-                    self.message_list_dict[service.peer] = service.message_list
-                self.chatui.update()
-                service.start()
-
-        print('closed')
-
     def startChatTo(self, username):
         addr = self.requestPort(username)
         if addr is None:
@@ -257,13 +276,3 @@ class Client:
                 self.buff_dict[username].assign('SendFile', filename)
             else:
                 print("Not friend")
-
-    def run(self):
-        self.loginui = GUII.LoginWindow(self, ('Helvetica', 13))
-        self.loginui.run()
-
-        self.chatui = GUII.ChatWindow(self, ('Helvetica', 13))
-        self.chatui.run()
-
-    def configIP(self, ip):
-        self.ip = ip

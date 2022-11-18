@@ -8,15 +8,18 @@ DEVICE_HOST = '192.168.0.103'
 Destination = 'download/'
 
 
+# a service for each conection to a friend (peer to peer)
 class Service_client(threading.Thread):
-    def __init__(self, socket, buff, message_list, username, peer = None, ip = ''):
+    def __init__(self, socket, buff, message_list, username, peer=None, ip=''):
         super(Service_client, self).__init__()
         self.socket = socket
         self.username = username
+        # username of friend
         if peer is not None:
             self.peer = peer
         else:
             self.peer = self.verify()
+        #
         self.buffer = buff
         self.message_list = message_list
         self.ip = ip
@@ -52,7 +55,7 @@ class Service_client(threading.Thread):
 
     def Send_byte(self, data):
         data_header = f"{len(data):<{HEADER_LENGTH}}".encode('utf-8')
-        self.socket.send(data_header + data)    
+        self.socket.send(data_header + data)
 
     def connectTo(self, addr):
         self.socket.connect(addr)
@@ -80,7 +83,8 @@ class Service_client(threading.Thread):
             port = f"{port:<{HEADER_LENGTH}}".encode('utf-8')
             self.socket.send(port)
             conn, addr = s.accept()
-            thread = threading.Thread(target=self.Send_File_thread, args=(filename,conn))
+            thread = threading.Thread(
+                target=self.Send_File_thread, args=(filename, conn))
             thread.start()
         else:
             print('No such file')
@@ -96,11 +100,10 @@ class Service_client(threading.Thread):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print(host)
         print(port)
-        s.connect((host,port))
-        
-        
-        
-        thread = threading.Thread(target=self.Receive_File_thread, args=(filename,s))
+        s.connect((host, port))
+
+        thread = threading.Thread(
+            target=self.Receive_File_thread, args=(filename, s))
         thread.start()
 
     def Send_File_thread(self, filename, conn):
@@ -123,7 +126,6 @@ class Service_client(threading.Thread):
         print('readed')
         conn.close()
 
-
     def run(self):
         while True:
             if len(self.buffer) == 0:
@@ -142,7 +144,7 @@ class Service_client(threading.Thread):
                 elif cmd == 'Verify':
                     self.on_verify()
 
-                #receive sms from peer
+                # receive sms from peer
                 elif cmd == 'sendSMS':
                     mess = self.Receive_SMS()
                     print(mess)
@@ -169,10 +171,9 @@ class Service_client(threading.Thread):
                     break
 
                 self.buffer.assign('', '')
-        
 
         self.buffer.off()
-        
+
     def accept(self):
         self.Send_message('accept')
 
