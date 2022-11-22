@@ -41,6 +41,7 @@ class Service:
         username = data['username']
         password = data['password']
         success = True
+        print('Login: ', username, password)
 
         if username is None or password is None:
             success = False

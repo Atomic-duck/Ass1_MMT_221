@@ -67,7 +67,7 @@ class Client:
 
     ###################
     def close(self):
-        com.Send(self.socket, 'close', {'username': username})
+        com.Send(self.socket, 'close')
         self.socket.close()
         # ???
         for username in self.buff_dict:
@@ -134,6 +134,7 @@ class Client:
         com.Send(self.socket, 'Login', {
                  'username': username, 'password': password})
         res = com.Receive(self.socket)
+        print(res)
 
         if res['data']['success'] == True:
             self.username = username
