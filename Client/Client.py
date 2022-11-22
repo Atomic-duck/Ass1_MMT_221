@@ -21,8 +21,7 @@ class Client:
         self.listen_flag = True
 
         hostname = socket.gethostname()
-        IPAddr = socket.gethostbyname(hostname)
-        self.ip = IPAddr
+        self.ip = socket.gethostbyname(hostname)
 
     def Connect(self):
         # This method will connect client socket to server socket

@@ -6,13 +6,15 @@ import threading
 class Database:
     def __init__(self):
         self.userDict = {}              # Key: username --- Val: <User>
-                                        # ex: userDict['tienanh'] = User tienanh
+        # ex: userDict['tienanh'] = User tienanh
 
-        self.userFriend = {}            # Key: username -- Val: list contains all names of friends of username
-                                        # ex: userFriend['tienanh'] = ['khoi', 'huy']
+        # Key: username -- Val: list contains all names of friends of username
+        self.userFriend = {}
+        # ex: userFriend['tienanh'] = ['khoi', 'huy']
 
-        self.userFriendRequest = {}     # Key: username -- Val: list contains all names of friend-requests of username
-                                        # ex: userFriendRequest['tienanh'] = ['khoi1', 'huy1']
+        # Key: username -- Val: list contains all names of friend-requests of username
+        self.userFriendRequest = {}
+        # ex: userFriendRequest['tienanh'] = ['khoi1', 'huy1']
         self.lock = threading.Lock()
 
         self.port_dict = {}
@@ -29,7 +31,7 @@ class Database:
 
     def setPort(self, username, host, port):
         self.port_dict[username] = (host, port)
-        
+
     def initOffline(self):
         for name, user in self.userDict.items():
             user.status = False
@@ -107,7 +109,7 @@ class Database:
         else:
             return self.userFriendRequest[username]
 
-    def acceptFriendRequest(self, username2, username1):
+    def acceptFriendRequest(self, username2, username1, accept):
         # Args: username1, username2
         # Accept friend request of username1 for username2. Adding them in their friendlist
         if (not self.isRegistered(username1)) or (not self.isRegistered(username2)):
@@ -118,29 +120,19 @@ class Database:
         if (username1 in listFriend2) or (username1 not in listRequest2) or (username1 == username2):
             return False
         else:
-            self.lock.acquire()
-            listFriend1.append(username2)
-            listFriend2.append(username1)
-            listRequest2.remove(username1)
-            self.save()
-            self.lock.release()
-            return True
+            if accept:
+                self.lock.acquire()
+                listFriend1.append(username2)
+                listFriend2.append(username1)
+                listRequest2.remove(username1)
+                self.save()
+                self.lock.release()
+            else:
+                self.lock.acquire()
+                listRequest2.remove(username1)
+                self.save()
+                self.lock.release()
 
-    def rejectFriendRequest(self, username2, username1):
-        # Args: username1, username2
-        # Reject friend request of username1 for username2.
-        if (not self.isRegistered(username1)) or (not self.isRegistered(username2)):
-            return False
-        listFriend1 = self.userFriend[username1]
-        listFriend2 = self.userFriend[username2]
-        listRequest2 = self.userFriendRequest[username2]
-        if username1 in listFriend2 or username1 not in listRequest2 or username1 == username2:
-            return False
-        else:
-            self.lock.acquire()
-            listRequest2.remove(username1)
-            self.save()
-            self.lock.release()
             return True
 
     def Login(self, username, password):

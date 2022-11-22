@@ -25,7 +25,7 @@ def Send_message(s, message):
     s.send(message_header + message)
 
 
-def Send(s, event, data):
+def Send(s, event, data={}):
     ob = {
         'event': event,
         'data': data

@@ -1,6 +1,6 @@
-import Server
 import User
 import threading
+import com
 
 HEADER_LENGTH = 10
 
@@ -15,209 +15,160 @@ class Service:
         self.lock = threading.Lock()
         self.username = None
 
-    def Receive_message(self):
-        # wait for data to arrive
-        # message_header contains message length
-        message_header = self.socket.recv(HEADER_LENGTH)
-
-        if not len(message_header):
-            return {'header': None, 'data': None}
-
-        # Convert header to int value
-        message_length = int(message_header.decode('utf-8').strip())
-        message = self.socket.recv(message_length).decode('utf-8')
-        print(message_length, message)
-
-        # Return an object of message header and message data
-        return {'header': message_header, 'data': message}
-
-    def Send_message(self, message):
-        message = message.encode('utf-8')
-        message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-        # Send data to the socket. The socket must be connected to a remote socket
-        self.socket.send(message_header + message)
-
-    def Register(self):
-        username = self.Receive_message()['data']
-        password = self.Receive_message()['data']
+    def Register(self, data):
+        username = data['username']
+        password = data['password']
+        success = True
 
         print(username)
         print(password)
-        if username is None or password is None:
-            self.Send_message('Failed')
-            return
 
-        if self.database.addUser(username, password):
-            self.Send_message('Successed')
-            self.username = username
-            self.password = password
-            self.database.online(username)
-            print("Welcome", username)
-            self.database.save()
+        if username is None or password is None:
+            success = False
         else:
-            self.Send_message('Failed')
+            if self.database.addUser(username, password):
+                self.username = username
+                self.password = password
+                self.database.online(username)
+                print("Welcome", username)
+            else:
+                success = False
+
+        com.Send(self.socket, 'Register', {'success': success})
 
     # authenticate and save username, password to service
-    def Login(self):
-        username = self.Receive_message()['data']
-        password = self.Receive_message()['data']
+    def Login(self, data):
+        username = data['username']
+        password = data['password']
+        success = True
 
         if username is None or password is None:
-            self.Send_message('Failed')
-            return
-
-        if self.database.Login(username, password):
-            self.Send_message('Successed')
-            self.username = username
-            self.password = password
-            self.database.online(username)
-            print("Welcome", username)
+            success = False
         else:
-            self.Send_message('Failed')
+            if self.database.addUser(username, password):
+                self.username = username
+                self.password = password
+                self.database.online(username)
+                print("Welcome", username)
+            else:
+                success = False
+
+        com.Send(self.socket, 'Register', {'success': success})
 
     def showFriend(self):
         friendDict = self.database.showFriend(self.username)
         if friendDict == None:
-            self.Send_message('Failed')
-
+            com.Send(self.socket, 'showFriend', {'success': False})
         else:
-            self.Send_message('Successed')
-            # send header
-            length = len(friendDict)
-            length = f"{length:<{HEADER_LENGTH}}".encode('utf-8')
-            self.socket.send(length)
-
             # send friend list
-            for key, val in friendDict.items():
-                self.Send_message(key)
-                if val:
-                    self.Send_message("Online")
-                else:
-                    self.Send_message("Offline")
+            com.Send(self.socket, 'showFriend', {
+                     'success': True, 'friendDict': friendDict})
 
     def showFriendRequest(self):
         requestList = self.database.showFriendRequest(self.username)
         if requestList == None:
-            self.Send_message('Failed')
+            com.Send(self.socket, 'showFriendRequest', {'success': False})
 
         else:
-            self.Send_message('Successed')
-            # send header
-            length = len(requestList)
-            length = f"{length:<{HEADER_LENGTH}}".encode('utf-8')
-            self.socket.send(length)
-
             # send request list
-            for username in requestList:
-                self.Send_message(username)
+            com.Send(self.socket, 'showFriendRequest', {
+                     'success': True, 'requestList': requestList})
 
-    def addFriend(self):
-        username = self.Receive_message()['data']
+    def addFriend(self, data):
+        username = data['username']
         if self.database.addFriend(self.username, username):
-            self.Send_message("Successed")
-            self.database.save()
+            com.Send(self.socket, 'addFriend', {'success': True})
         else:
-            self.Send_message("Failed")
+            com.Send(self.socket, 'addFriend', {'success': False})
 
-    def acceptFriendRequest(self):
-        username = self.Receive_message()['data']
-        if self.database.acceptFriendRequest(self.username, username):
-            self.Send_message("Successed")
-            self.database.save()
+    def acceptFriendRequest(self, data):
+        username = data['username']
+        accept = data['accept']
+
+        if self.database.acceptFriendRequest(self.username, username, accept):
+            com.Send(self.socket, 'acceptFriendRequest', {'success': True})
         else:
-            self.Send_message("Failed")
+            com.Send(self.socket, 'acceptFriendRequest', {'success': False})
 
-    def rejectFriendRequest(self):
-        username = self.Receive_message()['data']
-        if self.database.rejectFriendRequest(self.username, username):
-            self.Send_message("Successed")
-            self.database.save()
-        else:
-            self.Send_message("Failed")
-
-    def setPort(self):
-        print('ok')
+    def setPort(self, data):
         # host, port of who?? may be client is connecting with service but they don't use addr
-        host = self.Receive_message()['data']
-        port = self.socket.recv(HEADER_LENGTH)
+        host = data['host']
+        port = data['port']
+        print('Set Port: ', host, port)
 
         self.listen_host = host
-        self.listen_port = int(port.decode('utf-8').strip())
+        self.listen_port = int(port)
         print(self.listen_host, self.listen_port)
 
         self.database.setPort(
             self.username, self.listen_host, self.listen_port)
 
     # get (host, port) of friend by username
-    def requestPort(self):
-        username = self.Receive_message()['data']
-        print(username)
+    def requestPort(self, data):
+        username = data['username']
+        print('requestPort: ', username)
+
         if not self.database.isRegistered(username):  # unregistered username
-            self.Send_message('Failed')
+            com.Send(self.socket, 'requestPort', {'success': False})
             return
 
         listFriend = self.database.userFriend[self.username]
         if username not in listFriend:   # not friend
-            self.Send_message('Failed')
+            com.Send(self.socket, 'requestPort', {'success': False})
             return
 
         if username not in self.database.port_dict:
             print(self.database.port_dict)
-            self.Send_message('Failed')
+            com.Send(self.socket, 'requestPort', {'success': False})
         else:
             host, port = self.database.port_dict[username]
-            self.Send_message('Successed')
-            self.Send_message(host)
-            port = f"{port:<{HEADER_LENGTH}}".encode('utf-8')
-            self.socket.send(port)
+            com.Send(self.socket, 'requestPort', {
+                     'success': True, 'host': host, 'port': port})
 
     def __call__(self):
         while True:
-            cmd = self.Receive_message()['data']
-            if cmd == 'done':
+            req = com.Receive(self.socket)
+            event = req['event']
+            data = req['data']
+
+            if event == 'done':
                 self.lock.acquire()
                 self.close_response()
                 self.lock.release()
                 break
-            elif cmd == 'addFriend':
+            elif event == 'addFriend':
                 self.lock.acquire()
-                self.addFriend()
+                self.addFriend(data)
                 self.lock.release()
-            elif cmd == 'acceptFriendRequest':
+            elif event == 'acceptFriendRequest':
                 self.lock.acquire()
-                self.acceptFriendRequest()
+                self.acceptFriendRequest(data)
                 self.lock.release()
-            elif cmd == 'rejectFriendRequest':
-                self.lock.acquire()
-                self.rejectFriendRequest()
-                self.lock.release()
-            elif cmd == 'showFriendRequest':
+            elif event == 'showFriendRequest':
                 self.lock.acquire()
                 self.showFriendRequest()
                 self.lock.release()
-            elif cmd == 'showFriend':
+            elif event == 'showFriend':
                 self.lock.acquire()
                 self.showFriend()
                 self.lock.release()
-            elif cmd == 'setPort':
+            elif event == 'setPort':
                 self.lock.acquire()
-                self.setPort()
+                self.setPort(data)
                 self.lock.release()
-            elif cmd == 'requestPort':
+            elif event == 'requestPort':
                 self.lock.acquire()
-                self.requestPort()
+                self.requestPort(data)
                 self.lock.release()
-            elif cmd == 'shutdown':
+            elif event == 'shutdown':
                 if self.username == 'admin':
                     return True
 
-    def accept(self):
-        self.Send_message('accept')
+    def send_accept(self):
+        com.Send(self.socket, 'accept')
 
-    def close(self):
-        self.database.offine(self.username)
-        self.Send_message('done')
-        self.socket.close()
+    def send_close(self):
+        com.Send(self.socket, 'close')
 
 # user is offiline
     def close_response(self):
@@ -226,10 +177,10 @@ class Service:
 
     def verify(self):
         while True:
-            cmd = self.Receive_message()['data']
-            if cmd == 'Register':
-                self.Register()
+            req = com.Receive(self.socket)
+            if req['event'] == 'Register':
+                self.Register(req['data'])
                 break
-            elif cmd == 'Login':
-                self.Login()
+            elif req['event'] == 'Login':
+                self.Login(req['data'])
                 break

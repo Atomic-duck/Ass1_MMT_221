@@ -65,12 +65,13 @@ class Server:
         # kill service when the server shutdown or the number of services exceeds numthread
         if len(self.serviceList) >= self.numthread or self.shutdown == True:
             self.lock.release()
+            service.send_close()
             service.close_response()
             return
         self.lock.release()
 
-        # send "accept" message
-        service.accept()
+        # send "accept" event
+        service.send_accept()
         # Login / register
         service.verify()
         username = service.username
@@ -88,7 +89,7 @@ class Server:
                 self.socket.close()
                 self.lock.release()
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect((HOST, PORT))
+                s.connect(("", PORT))
                 s.close()
 
             self.lock.acquire()
@@ -98,5 +99,6 @@ class Server:
     def shutdownAllService(self):
         for _ in self.serviceList:
             _.lock.acquire()
-            _.close()
+            _.send_close()
+            _.close_response()
             _.lock.release()
