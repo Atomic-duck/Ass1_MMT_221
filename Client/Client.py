@@ -3,6 +3,7 @@ import Service_client
 import threading
 import Buffer
 import GUII
+import com
 HEADER_LENGTH = 10
 
 HOST = "localhost"  # Server's IP
@@ -28,8 +29,9 @@ class Client:
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((HOST, PORT))
-        res = self.Receive_message()['data']
-        if res == 'done':
+
+        res = com.Receive(self.socket)
+        if res['event'] == 'close':
             self.close_response()
             return False
 
@@ -39,63 +41,35 @@ class Client:
     def Listen(self):
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_socket.bind(("", 0))
+
         self.setPort()
         self.listen_thread = threading.Thread(target=self.listen_run, args=())
         self.listen_thread.start()
 
     def setPort(self):
-        print('setPort')
-        self.Send_message('setPort')
         host = self.ip
         port = self.listen_socket.getsockname()[1]
-        print(host, port)
+        print('Set Port: ', host, port)
 
-        self.Send_message(host)
-        # can not use send_message because port is int so can not encode
-        # self.Send_message(port)
-        port = f"{port:<{HEADER_LENGTH}}".encode('utf-8')
-        self.socket.send(port)
+        com.Send(self.socket, 'setPort', {'host': host, 'port': port})
 
     # get address of username from server
     def requestPort(self, username):
-        self.Send_message('requestPort')
-        self.Send_message(username)
-        response = self.Receive_message()['data']
-        if response == 'Successed':
-            host = self.Receive_message()['data']
-            port = self.socket.recv(HEADER_LENGTH)
-            port = int(port.decode('utf-8').strip())
+        com.Send(self.socket, 'requestPort', {'username': username})
+        res = com.Receive(self.socket)
+
+        if res['data']['success']:
+            host = res['data']['host']
+            port = res['data']['port']
             return (host, port)
         else:
             return None
 
-    # This method is used to receive message from server
-    def Receive_message(self):
-
-        message_header = self.socket.recv(HEADER_LENGTH)
-
-        if not len(message_header):
-            self.close()
-            return {'header': None, 'data': None}
-
-        # Convert header to int value
-        message_length = int(message_header.decode('utf-8').strip())
-
-        # Return an object of message header and message data
-        return {'header': message_header, 'data': self.socket.recv(message_length).decode('utf-8')}
-
-    # This method is used to send message to server
-    # Arg: message: a string object
-    def Send_message(self, message):
-
-        message = message.encode('utf-8')
-        message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-        self.socket.send(message_header + message)
-
     ###################
     def close(self):
-        self.Send_message('done')
+        com.Send(self.socket, 'close', {'username': username})
         self.socket.close()
+        # ???
         for username in self.buff_dict:
             self.buff_dict[username].assign('done', '')
 
@@ -112,19 +86,23 @@ class Client:
 
     def listen_run(self):
         self.listen_socket.listen()
+
         while self.listen_flag:
-            print('accept1')
             conn, addr = self.listen_socket.accept()
+
             if self.listen_flag:
                 buff = Buffer.Buffer(self.lock)
                 message_list = GUII.Message_list(self.chatui.Message_box_frame)
+
                 service = Service_client.Service_client(
                     conn, buff, message_list, self.username, ip=self.ip)
                 self.buff_dict[service.peer] = service.buffer
+
                 if service.peer in self.message_list_dict:
                     service.message_list = self.message_list_dict[service.peer]
                 else:
                     self.message_list_dict[service.peer] = service.message_list
+
                 self.chatui.update()
                 service.start()
 
@@ -142,99 +120,78 @@ class Client:
 
     ######## Service is called by GUII #########
     def Register(self, username, password):
+        com.Send(self.socket, 'Register', {
+                 'username': username, 'password': password})
+        res = com.Receive(self.socket)
 
-        self.Send_message("Register")
-        self.Send_message(username)
-        self.Send_message(password)
-
-        message_recv = self.Receive_message()
-        if message_recv['data'] == "Successed":
+        if res['data']['success'] == True:
             self.username = username
             return True
         else:
             return False
 
     def Login(self, username, password):
+        com.Send(self.socket, 'Login', {
+                 'username': username, 'password': password})
+        res = com.Receive(self.socket)
 
-        self.Send_message("Login")
-        self.Send_message(username)
-        self.Send_message(password)
-
-        message_recv = self.Receive_message()
-        if message_recv['data'] == "Successed":
+        if res['data']['success'] == True:
             self.username = username
             return True
         else:
             return False
 
     def showFriend(self):
-        self.Send_message("showFriend")
-        response = self.Receive_message()['data']
-        if response == "Successed":
-            length = self.socket.recv(HEADER_LENGTH)
-            length = int(length.decode('utf-8').strip())
-            friendDict = {}
-            for _ in range(length):
-                username = self.Receive_message()['data']
-                status = self.Receive_message()['data']
-                friendDict[username] = status
-            return friendDict
+        com.Send(self.socket, 'showFriend')
+        res = com.Receive(self)['data']
 
+        if res['success'] == True:
+            return res['friendDict']
         else:
             return None
 
     def showFriendRequest(self):
-        self.Send_message("showFriendRequest")
-        response = self.Receive_message()['data']
-        if response == "Successed":
-            length = self.socket.recv(HEADER_LENGTH)
-            length = int(length.decode('utf-8').strip())
-            requestList = []
-            for _ in range(length):
-                username = self.Receive_message()['data']
-                #status = self.Receive_message()['data']
-                requestList.append(username)
-            return requestList
+        com.Send(self.socket, 'showFriendRequest')
+        res = com.Receive(self)['data']
 
+        if res['success'] == True:
+            return res['requestList']
         else:
             return None
 
-    def acceptFriendRequest(self, username2):
-        self.Send_message("acceptFriendRequest")
-        self.Send_message(username2)
-        response = self.Receive_message()['data']
-        if response == "Successed":
+    def acceptFriendRequest(self, username, accept):
+        com.Send(self.socket, 'acceptFriendRequest', {
+                 'username': username, 'accept': accept})
+        res = com.Receive(self)['data']
+        if res['success'] == True:
             return True
         else:
             return False
 
     def rejectFriendRequest(self, username2):
-        self.Send_message("rejectFriendRequest")
-        self.Send_message(username2)
-        response = self.Receive_message()['data']
-        if response == "Successed":
-            return True
-        else:
-            return False
+        return True
 
-    def addFriend(self, username2):
-        self.Send_message("addFriend")
-        self.Send_message(username2)
-        response = self.Receive_message()['data']
-        if response == "Successed":
+    def addFriend(self, username):
+        com.Send(self.socket, 'addFriend', {'username': username})
+        res = com.Receive(self)['data']
+
+        if res['success'] == True:
             return True
         else:
             return False
 
     def shutdown(self):
-        self.Send_message("shutdown")
+        com.Send(self.socket, 'shutdown')
 
     def startChatTo(self, username):
         addr = self.requestPort(username)
+
         if addr is None:
             return False
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         buff = Buffer.Buffer(self.lock)
+
         if username in self.message_list_dict:
             service = Service_client.Service_client(
                 s, buff, self.message_list_dict[username], self.username, peer=username, ip=self.ip)
@@ -245,6 +202,7 @@ class Client:
                 s, buff, message_list, self.username, peer=username, ip=self.ip)
             self.buff_dict[username] = service.buffer
             self.message_list_dict[username] = service.message_list
+
         print(addr)
         service.connectTo(addr)
         service.start()
@@ -254,7 +212,9 @@ class Client:
     def chatTo(self, message):
         if self.target is None:
             return
+
         username = self.target
+
         if username in self.buff_dict and self.buff_dict[username].status == True:
             self.buff_dict[username].assign('SendSMS', message)
             print('yet')

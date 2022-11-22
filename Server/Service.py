@@ -131,7 +131,7 @@ class Service:
             event = req['event']
             data = req['data']
 
-            if event == 'done':
+            if event == 'close':
                 self.lock.acquire()
                 self.close_response()
                 self.lock.release()
