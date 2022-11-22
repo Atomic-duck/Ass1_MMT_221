@@ -4,7 +4,6 @@ import Database
 import Service
 
 HEADER_LENGTH = 10
-HOST = "localhost"
 PORT = 13000
 
 
@@ -15,7 +14,7 @@ class Server:
         # this will allow you to immediately restart a TCP server
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # this makes the server listen to requests coming from other computers on the network
-        self.socket.bind((HOST, PORT))
+        self.socket.bind(("", PORT))
 
         #####
         self.numthread = numthread
@@ -26,8 +25,8 @@ class Server:
         #
         self.serviceList = {}
         self.shutdown = False
-        self.admin_socket = None
-        self.admin_addr = None
+        # self.admin_socket = None
+        # self.admin_addr = None
 
     def Listen(self):
         # listen for incomming connections
@@ -40,15 +39,14 @@ class Server:
         while True:
             self.lock.acquire()
             if not self.shutdown:
-                self.lock.release()
                 # Accept a connection
+                self.lock.release()
                 conn, addr = self.socket.accept()
+                print("Connected by: ", addr)
             else:
                 self.lock.release()
                 break
 
-            print("Connected by: ", addr)
-            #print("Num: ", self.serviceList)
             # assign socket of client to a Service
             service = Service.Service(conn, addr, self.database, self.lock)
             # create a new thread run Verify_thread function
@@ -70,6 +68,7 @@ class Server:
             service.close_response()
             return
         self.lock.release()
+
         # send "accept" message
         service.accept()
         # Login / register
@@ -82,7 +81,7 @@ class Server:
             self.serviceList[username] = service
             self.lock.release()
 
-            # ????????
+            # run service.__call__(), return true when username is admin and sent shutdown
             if service():
                 self.lock.acquire()
                 self.shutdown = True
@@ -93,7 +92,6 @@ class Server:
                 s.close()
 
             self.lock.acquire()
-            # whyyyyyyy ?????
             del self.serviceList[username]
             self.lock.release()
 

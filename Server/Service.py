@@ -17,6 +17,7 @@ class Service:
 
     def Receive_message(self):
         # wait for data to arrive
+        # message_header contains message length
         message_header = self.socket.recv(HEADER_LENGTH)
 
         if not len(message_header):
@@ -24,9 +25,11 @@ class Service:
 
         # Convert header to int value
         message_length = int(message_header.decode('utf-8').strip())
+        message = self.socket.recv(message_length).decode('utf-8')
+        print(message_length, message)
 
         # Return an object of message header and message data
-        return {'header': message_header, 'data': self.socket.recv(message_length).decode('utf-8')}
+        return {'header': message_header, 'data': message}
 
     def Send_message(self, message):
         message = message.encode('utf-8')
