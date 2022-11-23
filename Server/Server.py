@@ -3,7 +3,6 @@ import threading
 import Database
 import Service
 
-HEADER_LENGTH = 10
 PORT = 13000
 
 

@@ -2,11 +2,12 @@ import threading
 import socket
 import os
 import com
+from pathlib import Path
 
 HEADER_LENGTH = 10
 HOST = "192.168.2.15"
 DEVICE_HOST = '192.168.0.103'
-Destination = 'download/'
+downloads_path = str(Path.home() / "Downloads\\") + '\\'
 
 
 # a service for each conection to a friend (peer to peer)
@@ -26,22 +27,22 @@ class Service_client(threading.Thread):
         self.ip = ip
 
     #####
-    def Receive_byte(self):
-        data_header = self.socket.recv(HEADER_LENGTH)
+    # def Receive_byte(self):
+    #     data_header = self.socket.recv(HEADER_LENGTH)
 
-        if not len(data_header):
-            return {'header': None, 'data': None}
+    #     if not len(data_header):
+    #         return {'header': None, 'data': None}
 
-        # Convert header to int value
-        data_length = int(data_header.decode('utf-8').strip())
+    #     # Convert header to int value
+    #     data_length = int(data_header.decode('utf-8').strip())
 
-        # Return an object of message header and message data
-        return {'header': data_header, 'data': self.socket.recv(data_length)}
+    #     # Return an object of message header and message data
+    #     return {'header': data_header, 'data': self.socket.recv(data_length)}
 
     ######
-    def Send_byte(self, data):
-        data_header = f"{len(data):<{HEADER_LENGTH}}".encode('utf-8')
-        self.socket.send(data_header + data)
+    # def Send_byte(self, data):
+    #     data_header = f"{len(data):<{HEADER_LENGTH}}".encode('utf-8')
+    #     self.socket.send(data_header + data)
 
     def connectTo(self, addr):
         self.socket.connect(addr)
@@ -50,77 +51,56 @@ class Service_client(threading.Thread):
         com.Send(self.socket, 'sendSMS', {'message': message})
         self.message_list.write('Me: ' + message + '\n')
 
-    def Receive_SMS(self):
-        message = com.Receive(self.socket)['data']['message']
+    def Receive_SMS(self, data):
+        message = data['message']
         self.message_list.write(self.peer + ': ' + message + '\n')
         return message
 
     ###
     def Send_File(self, filename):
         if os.path.exists(filename):
-            com.Send_message(self.socket, "sendFile")
-            com.Send_message(self.socket, filename)
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.bind(("", 0))
-            host = self.ip
-            port = s.getsockname()[1]
             s.listen()
-            com.Send_message(self.socket, host)
-            port = f"{port:<{HEADER_LENGTH}}".encode('utf-8')
-            self.socket.send(port)
+
+            com.Send(self.socket, "sendFile", {
+                     'filename': filename, 'host': self.ip, 'port': s.getsockname()[1]})
             conn, addr = s.accept()
+
             thread = threading.Thread(
-                target=self.Send_File_thread, args=(filename, conn))
+                target=com.Send_File, args=(conn, filename))
             thread.start()
         else:
             print('No such file')
             return False
 
     #####
-    def Receive_File(self):
-        filename = com.Receive_message(self.socket)['data']
-        filename = filename.split('/')[-1]
-        filename = Destination + filename
-        host = com.Receive_message(self.socket)['data']
-        port = self.socket.recv(HEADER_LENGTH)
-        port = int(port.decode('utf-8').strip())
+    def Receive_File(self, data):
+        filename = downloads_path + data['filename'].split('/')[-1]
+        print('File: ', filename)
+        host = data['host']
+        port = int(data['port'])
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(host)
-        print(port)
         s.connect((host, port))
 
         thread = threading.Thread(
-            target=self.Receive_File_thread, args=(filename, s))
+            target=com.Receive_File, args=(s, filename))
         thread.start()
-
-    ######
-    def Send_File_thread(self, filename, conn):
-        with open(filename, "rb") as in_file:
-            while True:
-                data = in_file.read(2048)
-                if not data:
-                    break
-                conn.send(data)
-        conn.close()
-
-    #######
-    def Receive_File_thread(self, filename, conn):
-        with open(filename, "wb") as out_file:
-            while True:
-                print('reading...')
-                data = conn.recv(1024)
-                if not data:
-                    break
-                out_file.write(data)
-        print('readed')
-        conn.close()
 
     def run(self):
         while True:
-            print('run: ', len(self.buffer))
             if len(self.buffer) == 0:
+                try:
+                    com.Send(self.socket, "Idle")
+                except:
+                    self.close_response()
+                    print('close not safe')
+                    break
+
                 res = com.Receive(self.socket)
                 event = res['event']
+                data = res['data']
 
                 # send username to peer
                 if event == 'Verify':
@@ -128,11 +108,12 @@ class Service_client(threading.Thread):
 
                 # receive sms from peer
                 elif event == 'sendSMS':
-                    mess = self.Receive_SMS()
-                    print(mess)
+                    mess = self.Receive_SMS(data)
+                    print('recieve: ', mess)
 
                 elif event == 'sendFile':
-                    self.Receive_File()
+                    # must insert data
+                    self.Receive_File(data)
 
                 elif event == 'close':
                     self.close_response()
@@ -171,10 +152,17 @@ class Service_client(threading.Thread):
         self.socket.close()
 
     def verify(self):
-        com.Send(self.socket, 'Verify')
-        data = com.Receive(self.socket)['data']['username']
+        data = {}
 
-        return data
+        com.Send(self.socket, 'Verify')
+        event = 'Idle'
+        while event == 'Idle':
+            res = com.Receive(self.socket)
+            event = res['event']
+            data = res['data']
+
+        print('verify: ', data)
+        return data['username']
 
     def on_verify(self):
         com.Send(self.socket, 'Verify', {'username': self.username})

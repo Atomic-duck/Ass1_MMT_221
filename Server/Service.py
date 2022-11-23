@@ -2,8 +2,6 @@ import User
 import threading
 import com
 
-HEADER_LENGTH = 10
-
 
 class Service:
     def __init__(self, socket, addr, database, lock):

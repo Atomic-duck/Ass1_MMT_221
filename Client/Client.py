@@ -7,7 +7,6 @@ import com
 HEADER_LENGTH = 10
 
 HOST = "localhost"  # Server's IP
-DEVICE_HOST = "10.0.130.146"  # "192.168.2.15"
 PORT = 13000
 
 
@@ -69,9 +68,9 @@ class Client:
     def close(self):
         com.Send(self.socket, 'close')
         self.socket.close()
-        # ???
+
         for username in self.buff_dict:
-            self.buff_dict[username].assign('done', '')
+            self.buff_dict[username].assign('close', '')
 
         host = self.ip
         self.listen_flag = False
@@ -106,7 +105,7 @@ class Client:
                 self.chatui.update()
                 service.start()
 
-        print('closed')
+        print('closed: ', self.listen_socket)
 
     def run(self):
         self.loginui = GUII.LoginWindow(self, ('Helvetica', 13))
@@ -115,10 +114,7 @@ class Client:
         self.chatui = GUII.ChatWindow(self, ('Helvetica', 13))
         self.chatui.run()
 
-    # def configIP(self, ip):
-    #     self.ip = ip
-
-    ######## Service is called by GUII #########
+    ######## function is called by GUII #########
     def Register(self, username, password):
         com.Send(self.socket, 'Register', {
                  'username': username, 'password': password})
