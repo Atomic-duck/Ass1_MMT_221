@@ -1,4 +1,3 @@
-import User
 import threading
 import com
 
