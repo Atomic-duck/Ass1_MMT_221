@@ -204,7 +204,7 @@ class Client:
             self.buff_dict[username] = service.buffer
             self.message_list_dict[username] = service.message_list
 
-        print(addr)
+        print('startChatTo:', addr)
         service.connectTo(addr)
         service.start()
         self.chatui.update()
@@ -218,14 +218,14 @@ class Client:
 
         if username in self.buff_dict and self.buff_dict[username].status == True:
             self.buff_dict[username].assign('SendSMS', message)
-
-            print('yet')
+            print('old chat: ', self.buff_dict[username].string())
         else:
             check = self.startChatTo(username)
             if check:
                 self.buff_dict[username].assign('SendSMS', message)
             else:
                 self.chatui.update()
+            print('new chat: ', self.buff_dict[username].string())
 
     def sendFileTo(self, filename):
         username = self.target

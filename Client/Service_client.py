@@ -117,7 +117,7 @@ class Service_client(threading.Thread):
 
     def run(self):
         while True:
-            print(len(self.buffer))
+            print('run: ', len(self.buffer))
             if len(self.buffer) == 0:
                 res = com.Receive(self.socket)
                 event = res['event']
