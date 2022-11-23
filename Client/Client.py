@@ -177,8 +177,8 @@ class Client:
         else:
             return False
 
-    def shutdown(self):
-        com.Send(self.socket, 'shutdown')
+    # def shutdown(self):
+    #     com.Send(self.socket, 'shutdown')
 
     def startChatTo(self, username):
         addr = self.requestPort(username)

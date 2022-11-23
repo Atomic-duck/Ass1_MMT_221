@@ -26,24 +26,6 @@ class Service_client(threading.Thread):
         self.message_list = message_list
         self.ip = ip
 
-    #####
-    # def Receive_byte(self):
-    #     data_header = self.socket.recv(HEADER_LENGTH)
-
-    #     if not len(data_header):
-    #         return {'header': None, 'data': None}
-
-    #     # Convert header to int value
-    #     data_length = int(data_header.decode('utf-8').strip())
-
-    #     # Return an object of message header and message data
-    #     return {'header': data_header, 'data': self.socket.recv(data_length)}
-
-    ######
-    # def Send_byte(self, data):
-    #     data_header = f"{len(data):<{HEADER_LENGTH}}".encode('utf-8')
-    #     self.socket.send(data_header + data)
-
     def connectTo(self, addr):
         self.socket.connect(addr)
 

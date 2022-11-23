@@ -163,6 +163,8 @@ class Service:
                 if self.username == 'admin':
                     return True
 
+        print('close: ', self.addr)
+
     def send_accept(self):
         com.Send(self.socket, 'accept')
 

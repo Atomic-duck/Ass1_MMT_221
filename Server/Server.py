@@ -59,7 +59,6 @@ class Server:
     def Verify_thread(self, service):
         # Start thread
         # Args: Service object
-
         self.lock.acquire()
         # kill service when the server shutdown or the number of services exceeds numthread
         if len(self.serviceList) >= self.numthread or self.shutdown == True:
