@@ -46,7 +46,7 @@ class Service:
         if username is None or password is None:
             success = False
         else:
-            if self.database.addUser(username, password):
+            if self.database.Login(username, password):
                 self.username = username
                 self.password = password
                 self.database.online(username)

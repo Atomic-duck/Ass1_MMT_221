@@ -144,7 +144,7 @@ class Client:
 
     def showFriend(self):
         com.Send(self.socket, 'showFriend')
-        res = com.Receive(self)['data']
+        res = com.Receive(self.socket)['data']
 
         if res['success'] == True:
             return res['friendDict']
@@ -153,7 +153,7 @@ class Client:
 
     def showFriendRequest(self):
         com.Send(self.socket, 'showFriendRequest')
-        res = com.Receive(self)['data']
+        res = com.Receive(self.socket)['data']
 
         if res['success'] == True:
             return res['requestList']
@@ -163,7 +163,7 @@ class Client:
     def acceptFriendRequest(self, username, accept):
         com.Send(self.socket, 'acceptFriendRequest', {
                  'username': username, 'accept': accept})
-        res = com.Receive(self)['data']
+        res = com.Receive(self.socket)['data']
         if res['success'] == True:
             return True
         else:
@@ -174,7 +174,7 @@ class Client:
 
     def addFriend(self, username):
         com.Send(self.socket, 'addFriend', {'username': username})
-        res = com.Receive(self)['data']
+        res = com.Receive(self.socket)['data']
 
         if res['success'] == True:
             return True
@@ -218,6 +218,7 @@ class Client:
 
         if username in self.buff_dict and self.buff_dict[username].status == True:
             self.buff_dict[username].assign('SendSMS', message)
+
             print('yet')
         else:
             check = self.startChatTo(username)

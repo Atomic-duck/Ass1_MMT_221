@@ -117,21 +117,13 @@ class Service_client(threading.Thread):
 
     def run(self):
         while True:
+            print(len(self.buffer))
             if len(self.buffer) == 0:
-                try:
-                    com.Send_message(self.socket, "Idle")
-                except:
-                    self.close_response()
-                    print('close not safe')
-                    break
-
-                res = com.Receive()
+                res = com.Receive(self.socket)
                 event = res['event']
-                if event == 'Idle':
-                    continue
 
                 # send username to peer
-                elif event == 'Verify':
+                if event == 'Verify':
                     self.on_verify()
 
                 # receive sms from peer
@@ -180,12 +172,9 @@ class Service_client(threading.Thread):
 
     def verify(self):
         com.Send(self.socket, 'Verify')
+        data = com.Receive(self.socket)['data']['username']
 
-        data = 'Idle'
-        while data == 'Idle':
-            data = com.Receive_message(self.socket)['data']
-        print(data)
         return data
 
     def on_verify(self):
-        com.Send_message(self.socket, self.username)
+        com.Send(self.socket, 'Verify', {'username': self.username})

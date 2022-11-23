@@ -47,6 +47,7 @@ def Receive(s):
     # Convert header to int value
     message_length = int(message_header.decode('utf-8').strip())
     message = s.recv(message_length).decode('utf-8')
+    print('message: ', message)
     data = json.loads(message)
 
     return data

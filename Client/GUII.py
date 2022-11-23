@@ -19,7 +19,7 @@ class Message_list:
         self.messages_list.configure(state='disabled')
 
     def write(self, text):
-        print(text)
+        print('write: ', text)
         self.messages_list.configure(state='normal')
         if text != '\n':
             self.messages_list.insert(tk.END, text)
@@ -240,20 +240,21 @@ class ChatWindow(Window):
         friendlist = self.client.showFriend()
         self.logins_list.delete(0, 'end')
         self.friend_request_list.delete(0, 'end')
-        print('nice')
+        print('update friend list')
         for friend in friendlist:
-            # if friendlist[friend] == 'Online':
-            #    print(friend)
-            self.logins_list.insert(tk.END, friend + ': ' + friendlist[friend])
+            status = "Offline"
+            if friendlist[friend] == True:
+                status = "Online"
+            self.logins_list.insert(tk.END, friend + ': ' + status)
 
         friendlist = self.client.showFriendRequest()
-        print('nice')
+        print('update friend request list')
         for friend in friendlist:
             self.friend_request_list.insert(tk.END, friend)
 
     def on_closing_event(self):
         self.client.close()
-        print('ok')
+        print('close')
         self.root.destroy()
 
     def selected_login_event(self, event):
@@ -277,7 +278,7 @@ class ChatWindow(Window):
             elif self.client.buff_dict[target].status == False:
                 self.client.startChatTo(target)
 
-            print(target)
+            print('Online: ', target)
             self.message_list = self.client.message_list_dict[target]
             self.message_list.show()
 
@@ -290,14 +291,13 @@ class ChatWindow(Window):
 
     def select_friend_request(self, event):
         """Set as target currently selected login on login list"""
-        print('selected')
         target = self.friend_request_list.get(
             self.friend_request_list.curselection())
-        print(target)
+        print('selected: ', target)
         if messagebox.askyesno('Add friend', 'Accept ' + target + '?'):
-            self.client.acceptFriendRequest(target)
+            self.client.acceptFriendRequest(target, True)
         else:
-            self.client.rejectFriendRequest(target)
+            self.client.acceptFriendRequest(target, False)
         self.update()
 
     def send_entry_event(self, event):
@@ -306,7 +306,7 @@ class ChatWindow(Window):
         text = self.Entry.get(1.0, tk.END)
         if text != '\n':
             #message = 'msg;' + self.login + ';' + self.target + ';' + text[:-1]
-            print(text)
+            print('send_entry_event: ', text)
             self.client.chatTo(message=text[:-1])
             self.Entry.mark_set(tk.INSERT, 1.0)
             self.Entry.focus_set()
@@ -327,7 +327,7 @@ class ChatWindow(Window):
     def send_file_event(self, event):
         filename = filedialog.askopenfilename(
             initialdir="/", title="Select file")
-        print(filename)
+        print('send_file_event: ', filename)
         if filename is not None:
             try:
                 self.client.sendFileTo(filename)
